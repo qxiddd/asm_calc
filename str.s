@@ -1,9 +1,6 @@
-# .include "tokens.s"
-.include "tools.s"
+delimeter = 0x20
 
 .nolist
-
-delimeter = 0x20
 
 # make single string from stack. RESULT link to str in RSI
 # put quantity of args to RCX
@@ -45,22 +42,40 @@ delimeter = 0x20
 # RETURN link to result str in %RDI
 sort_station:
     XOR     %RCX, %RCX
+    MOV     $output_str, %RDI
+    SAVE_VAR    $pos2 %RDI
+    MOV     $output_str, %R8  # For debugging TODO delete me
+    MOV     %RSI, %R9         # For debugging
     __sort_begin:
-        PUSH    %RCX  # operations in the stack
-        CALL    read_token  # RDX type, RAX success, RDI link2str
+        PUSH    %RCX        # quantity operations in the stack
+        CALL    read_token  # return RDX type, RAX success, RDI link2str
         POP     %RCX
         CMP     $1, %RAX  # if not success
         JNE     2f
-            CMP     $0, %RCX # if(RCX != 0) stack not empty
-            JE     3f
-                DIE error_msg="Bad expression" exit_code=10
+        case_tkn_failure:
+                CMP     $0, %RCX  # while stack not empty
+                JE      3f
+                POP     %RAX  # current token
+                DEC     %RCX
+                CMP     $tkn_open_br, %RAX
+                JNE     4f
+                    DIE error_msg="Wrong expression" exit_code=15
+                4:
+                LOAD_VAR    $pos2 %RDI
+                STOSB
+                MOV     $delimeter, %AL
+                STOSB
+                SAVE_VAR    $pos2 %RDI
+                JMP     case_tkn_failure
             3:
+            MOV     $output_str, %RDI
             RET
         2:
         CMP     $tkn_number, %RDX  # if number
         JNE     2f
+        case_tkn_number:
             SAVE_VAR    $pos1 %RSI  # need copy number to out
-            MOV     %RDI, %RSI
+            MOV     %RDI, %RSI  # move link2str (result from read_token)
             LOAD_VAR    $pos2 %RDI
 
             CALL    copy_str
@@ -70,45 +85,92 @@ sort_station:
             SAVE_VAR    $pos2 %RDI
             LOAD_VAR    $pos1 %RSI
             JMP     __sort_begin
-        2:  # if not number
+        2:
         CMP     $tkn_open_br, %RDX
         JNE     2f
+        case_tkn_open_br:
             PUSH    %RDX
             INC     %RCX
             JMP     __sort_begin
         2:
         CMP     $tkn_clos_br, %RDX
         JNE     2f
-            # TODO Open bracket
-            JMP     __sort_begin
+        case_clos_br:
+            CMP     $0, %RCX
+            JNE     3f
+                DIE error_msg="Wrong expression" exit_code=15
+            3:
+            POP     %RAX
+            DEC     %RCX
+            CMP     $tkn_open_br, %AL
+            JE      __sort_begin   # jump if OpenBr got
+            LOAD_VAR    $pos2 %RDI
+            STOSB
+            MOV     $delimeter, %AL
+            STOSB
+            SAVE_VAR    $pos2 %RDI
+            JMP     case_clos_br
         2:
-        # TODO Binary operation
-        JMP     __sort_begin
+        case_oper:
+            CMP     $0, %RCX  # if stack is empty
+            JE      case_oper__continue
+            POP     %RAX  # op1 in RDX, op2 in RAX
+            DEC     %RCX
+            CMP     $tkn_open_br, %RAX
+            JNE     3f
+                PUSH    %RAX
+                INC     %RCX
+                JMP     case_oper__continue
+            3:
+            PUSH    %RAX  # operations tokens are saved, first POP for op1
+            PUSH    %RDX
+            CALL    get_oper_prior
+            MOV     %RAX, %RDI  # prior(op2) in RDI
+            MOV     %RDX, %RAX  # prior(op1) in RAX
+            CALL    get_oper_prior
+            CMP     %RAX, %RDI  # if (op1 <= op2): push op2 to out
+            JB      3f
+                POP     %RDX
+                POP     %RAX
+                LOAD_VAR    $pos2 %RDI
+                STOSB
+                MOV     $delimeter, %AL
+                STOSB
+                SAVE_VAR    $pos2 %RDI
+                JMP     case_oper
+            3:
+            POP     %RDX
+            INC     %RCX
+            JMP     case_oper__continue
+        case_oper__continue:
+            PUSH    %RDX
+            INC     %RCX
+            JMP     __sort_begin
 
 
 get_oper_prior:
     CMP     $tkn_plus, %RAX
     JNE     2f
         MOV     $1, %RAX
-        JMP     1f
+        JMP     3f
     2:
     CMP     $tkn_minus, %RAX
     JNE     2f
         MOV     $1, %RAX
-        JMP     1f
+        JMP     3f
     2:
     CMP     $tkn_mult, %RAX
     JNE     2f
         MOV     $10, %RAX
-        JMP     1f
+        JMP     3f
     2:
     CMP     $tkn_div, %RAX
     JNE     2f
         MOV     $10, %RAX
-        JMP     1f
+        JMP     3f
     2:
     DIE error_msg="Unknown operation token got" exit_code=16
-    1:
+    3:
     RET
 
 

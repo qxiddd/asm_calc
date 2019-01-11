@@ -1,26 +1,29 @@
-.include "tools.s"
-.include "nums.s"
-
 .globl _start
 
+.include "tools.s"
+.include "nums.s"
+.include "str.s"
+.include "tokens.s"
+
 .data
-    buffer: .ascii "                               "
-            .byte 0
+    result:     .fill 128, 1
+    endl:       .byte 10, 0
 
 .text
-
 _start:
     POP     %RCX
-    POP     %RDI
     POP     %RSI
-    MOV     $10, %RBX
-    CALL    str2int
+    DEC     %RCX
+    PASTE_TOGETHER_ARGS
+    CALL    sort_station
+    CALL    calculate
 
-    CALL    neg_shifted
-    MOV     $buffer, %RDI
+    MOV     $result, %RDI
     CALL    int2str
 
-    MOV     $buffer, %RSI
-    CALL    print
+    MOV     $result, %RSI
+    CALL    print_str
+    MOV     $endl, %RSI
+    CALL    print_str
 
     CALL    exit

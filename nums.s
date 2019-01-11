@@ -1,8 +1,95 @@
 num_shift = 0x100000000
 
-.include "tokens.s"
+# .include "tokens.s"
+
+input_num_system = 0xA
 
 .text
+
+# Put input string to RDI
+# RETURN result in RAX
+calculate:
+    XOR     %RCX, %RCX
+    MOV     %RDI, %RSI
+    calc_start:
+        PUSH    %RCX
+        CALL    read_token  # return RDX type, RAX success, RDI link2str
+        POP     %RCX
+        CMP     $1, %RAX  # if not success
+        JNE     3f
+            CMP     $0, %RCX
+            JNE     2f
+                DIE error_msg="Calculation error." exit_code=20
+            2:
+            POP     %RAX
+            RET
+        3:
+        CMP     $tkn_number, %RDX
+        JNE     1f
+            # if number
+            PUSH    %RSI
+            MOV     %RDI, %RSI
+            MOV     $input_num_system, %RBX
+            PUSH    %RCX
+            CALL    str2int
+            POP     %RCX
+            POP     %RSI
+            PUSH    %RAX
+            INC     %RCX
+            JMP     calc_start
+        1:
+        CMP     $0, %RCX  # if no operands
+        JE      calc_start
+        POP     %RAX   # get first operand
+        DEC     %RCX
+        CMP     $0, %RCX  # if only one operand
+        JNE     1f
+            CMP     $tkn_minus, %RDX  # if minus, negative operand
+            JNE     2f
+                PUSH    %RCX
+                PUSH    %RSI
+                CALL    neg_shifted
+                POP     %RSI
+                POP     %RCX
+            2:
+            PUSH    %RAX
+            INC     %RCX
+            JMP     calc_start
+        1:
+        POP     %RBX  # get second operand
+        DEC     %RCX
+        PUSH    %RCX
+        PUSH    %RSI
+        CMP     $tkn_plus, %RDX
+        JNE     1f
+            CALL    add_shifted
+            JMP     calc__continue
+        1:
+        CMP     $tkn_minus, %RDX
+        JNE     1f
+            XCHG    %RBX, %RAX
+            CALL    sub_shifted
+            JMP     calc__continue
+        1:
+        CMP     $tkn_mult, %RDX
+        JNE     1f
+            CALL    mul_shifted
+            JMP     calc__continue
+        1:
+        CMP     $tkn_div, %RDX
+        JNE     1f
+            XCHG    %RBX, %RAX
+            CALL    div_shifted
+            JMP     calc__continue
+        1:
+        DIE     error_msg="Unknown token got for calculating" exit_code=20
+        calc__continue:
+        POP     %RSI
+        POP     %RCX
+        PUSH    %RAX
+        INC     %RCX
+        JMP     calc_start
+    
 
 # put shifted number to RAX
 # put to RDI for output
@@ -183,7 +270,7 @@ sub_shifted:
     PUSH    %RAX
     MOV     %RBX, %RAX
     CALL    neg_shifted  # меняем знак у второго аргумента
-    MOV     %RAX, %RDX
+    MOV     %RAX, %RBX
     POP     %RAX
     JMP     add_shifted
 
@@ -202,9 +289,9 @@ mul_shifted:
     POP     %RAX  #  достаем модуль первого аргумента
     POP     %RBX  #  достаем модуль второго аргумента
     MUL     %RBX
-    JNO     1f
+    JNO     2f
         DIE error_msg="Overflow"
-    1:
+    2:
     CALL make_shifted
     RET  # PROFIT
 

@@ -1,16 +1,18 @@
-tkn_plus  = 0x2B
-tkn_minus = 0x2D
-tkn_mult  = 0x2A
-tkn_div   = 0x2F
+# TOKEN TYPES ------------
+    tkn_plus  = 0x2B
+    tkn_minus = 0x2D
+    tkn_mult  = 0x2A
+    tkn_div   = 0x2F
 
-tkn_zero   = 0x30
-tkn_nine   = 0x39
-tkn_number = 0x31
+    tkn_zero   = 0x30
+    tkn_nine   = 0x39
+    tkn_number = 0x31
 
-tkn_open_br = 0x28
-tkn_clos_br = 0x29
+    tkn_open_br = 0x28
+    tkn_clos_br = 0x29
 
-tkn_space = 0x20
+    tkn_space = 0x20
+# ------------------------
 
 .data
 token_buffer: .fill 128, 1

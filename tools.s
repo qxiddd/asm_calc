@@ -23,6 +23,25 @@ print:
     MOV     $1, %RAX
     MOV     $1, %RDI
     SYSCALL
+    RET
+
+# put link to str to RSI
+print_str:
+    PUSH    %RSI
+    XOR     %RCX, %RCX
+    1:
+        MOVB    (%RSI), %AL
+        INC     %RSI
+        CMP     $0, %AL
+        JNE     2f
+            MOV     %RCX, %RDX
+            POP     %RSI
+            CALL    print
+            RET
+        2:
+        INC     %RCX
+        JMP     1b
+    
 
 
 # put exit_code to RDI
